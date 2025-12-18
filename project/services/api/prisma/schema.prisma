@@ -1,0 +1,463 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  username    String?  @unique
+  passwordHash String?
+  role        Role     @default(VIEWER)
+  displayName String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  oauthAccounts         OAuthAccount[]
+  refreshTokens         RefreshToken[]
+  linkedPlatformAccounts LinkedPlatformAccount[]
+  streamerProfile       StreamerProfile?
+  viewerProfile         ViewerProfile?
+  
+  // As viewer
+  followsAsViewer       Follow[] @relation("ViewerFollows")
+  redemptionsAsViewer   Redemption[] @relation("ViewerRedemptions")
+  pointTransactionsAsViewer PointsTransaction[] @relation("ViewerTransactions")
+  pollVotes             PollVote[]
+  gameParticipations    GameParticipation[]
+  ordersAsBuyer         Order[] @relation("BuyerOrders")
+  
+  // As streamer
+  followsAsStreamer     Follow[] @relation("StreamerFollows")
+  contentItems          ContentItem[]
+  statsSnapshots        StatsSnapshot[]
+  liveStatuses          LiveStatus[]
+  rewards               Reward[]
+  redemptionsAsStreamer Redemption[] @relation("StreamerRedemptions")
+  pointTransactionsAsStreamer PointsTransaction[] @relation("StreamerTransactions")
+  polls                 Poll[]
+  miniGames             MiniGame[]
+  ordersAsSeller        Order[] @relation("SellerOrders")
+  products              Product[]
+  
+  // Audit
+  auditLogs             AuditLog[]
+  notificationSubscriptions NotificationSubscription[]
+
+  @@map("users")
+}
+
+model OAuthAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String
+  providerUserId String
+  accessToken    String?
+  refreshToken   String?
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@map("oauth_accounts")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  isRevoked Boolean  @default(false)
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model SocialAuthMetric {
+  id        String   @id @default(cuid())
+  provider  String
+  action    String
+  context   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([provider, action, createdAt])
+  @@map("social_auth_metrics")
+}
+
+model LinkedPlatformAccount {
+  id               String   @id @default(cuid())
+  userId           String
+  platform         Platform
+  platformUserId   String
+  handle           String
+  accessToken      String? // Encrypted
+  refreshToken     String? // Encrypted
+  scopes           String? // JSON string of scopes array
+  linkedAt         DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@unique([platform, platformUserId])
+  @@map("linked_platform_accounts")
+}
+
+model StreamerProfile {
+  id       String  @id @default(cuid())
+  userId   String  @unique
+  bio      String?
+  links    Json?   // Social links, website, etc.
+  isPublic Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("streamer_profiles")
+}
+
+model ViewerProfile {
+  id          String @id @default(cuid())
+  userId      String @unique
+  preferences Json?  // Notification settings, theme, etc.
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("viewer_profiles")
+}
+
+model Follow {
+  id                  String   @id @default(cuid())
+  viewerId            String
+  streamerId          String
+  createdAt           DateTime @default(now())
+  notificationsEnabled Boolean @default(true)
+
+  viewer   User @relation("ViewerFollows", fields: [viewerId], references: [id], onDelete: Cascade)
+  streamer User @relation("StreamerFollows", fields: [streamerId], references: [id], onDelete: Cascade)
+
+  @@unique([viewerId, streamerId])
+  @@map("follows")
+}
+
+model ContentItem {
+  id                String      @id @default(cuid())
+  streamerId        String
+  platform          Platform
+  platformContentId String
+  type              ContentType
+  title             String
+  url               String
+  thumbnail         String?
+  publishedAt       DateTime
+  viewerCount       Int         @default(0)
+  statsCached       Json? // Views, likes, comments, etc.
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  streamer User @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+
+  @@unique([platform, platformContentId])
+  @@index([streamerId, platform, type])
+  @@map("content_items")
+}
+
+model StatsSnapshot {
+  id        String   @id @default(cuid())
+  streamerId String
+  platform  Platform
+  date      DateTime
+  followers Int      @default(0)
+  views     Int      @default(0)
+  likes     Int      @default(0)
+  comments  Int      @default(0)
+  shares    Int      @default(0)
+  createdAt DateTime @default(now())
+
+  streamer User @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+
+  @@unique([streamerId, platform, date])
+  @@index([streamerId, date])
+  @@map("stats_snapshots")
+}
+
+model LiveStatus {
+  id         String    @id @default(cuid())
+  streamerId String
+  platform   Platform
+  isLive     Boolean   @default(false)
+  startedAt  DateTime?
+  title      String?
+  game       String?
+  viewerCount Int?     @default(0)
+  thumbnailUrl String?
+  updatedAt  DateTime  @updatedAt
+
+  streamer User @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+
+  @@unique([streamerId, platform])
+  @@index([isLive, updatedAt])
+  @@map("live_statuses")
+}
+
+model Reward {
+  id          String @id @default(cuid())
+  streamerId  String
+  title       String
+  description String?
+  costPoints  Int
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  streamer    User         @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+  redemptions Redemption[]
+
+  @@index([streamerId, isActive])
+  @@map("rewards")
+}
+
+model Redemption {
+  id          String           @id @default(cuid())
+  rewardId    String
+  viewerId    String
+  streamerId  String
+  status      RedemptionStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  fulfilledAt DateTime?
+
+  reward   Reward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  viewer   User   @relation("ViewerRedemptions", fields: [viewerId], references: [id], onDelete: Cascade)
+  streamer User   @relation("StreamerRedemptions", fields: [streamerId], references: [id], onDelete: Cascade)
+
+  @@index([streamerId, status])
+  @@index([viewerId, createdAt])
+  @@map("redemptions")
+}
+
+model PointsTransaction {
+  id         String   @id @default(cuid())
+  userId     String
+  streamerId String
+  delta      Int // Positive for earning, negative for spending
+  reason     String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user     User @relation("ViewerTransactions", fields: [userId], references: [id], onDelete: Cascade)
+  streamer User @relation("StreamerTransactions", fields: [streamerId], references: [id], onDelete: Cascade)
+
+  @@index([userId, streamerId])
+  @@index([createdAt])
+  @@map("points_transactions")
+}
+
+model Poll {
+  id         String     @id @default(cuid())
+  streamerId String
+  question   String
+  status     PollStatus @default(OPEN)
+  createdAt  DateTime   @default(now())
+  endsAt     DateTime?
+
+  streamer User       @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+  options  PollOption[]
+  votes    PollVote[]
+
+  @@index([streamerId, status])
+  @@map("polls")
+}
+
+model PollOption {
+  id     String @id @default(cuid())
+  pollId String
+  label  String
+  votes  Int    @default(0)
+
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pollVotes PollVote[]
+
+  @@map("poll_options")
+}
+
+model PollVote {
+  id       String   @id @default(cuid())
+  pollId   String
+  optionId String
+  userId   String
+  createdAt DateTime @default(now())
+
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@map("poll_votes")
+}
+
+model MiniGame {
+  id         String       @id @default(cuid())
+  streamerId String
+  type       MiniGameType
+  state      Json // Game-specific data (questions, predictions, etc.)
+  createdAt  DateTime     @default(now())
+  endsAt     DateTime?
+
+  streamer       User                @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+  participations GameParticipation[]
+
+  @@index([streamerId, type])
+  @@map("mini_games")
+}
+
+model GameParticipation {
+  id       String   @id @default(cuid())
+  gameId   String
+  userId   String
+  answer   Json // User's answer/prediction
+  createdAt DateTime @default(now())
+
+  game MiniGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, userId])
+  @@map("game_participations")
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  streamerId      String
+  buyerId         String
+  productId       String?
+  amount          Int // Amount in cents
+  currency        String      @default("usd")
+  stripeSessionId String?
+  status          OrderStatus @default(PENDING)
+  createdAt       DateTime    @default(now())
+  completedAt     DateTime?
+
+  streamer User     @relation("SellerOrders", fields: [streamerId], references: [id], onDelete: Cascade)
+  buyer    User     @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Cascade)
+  product  Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([streamerId, status])
+  @@index([buyerId, createdAt])
+  @@map("orders")
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  streamerId  String
+  title       String
+  description String?
+  price       Int // Price in cents
+  currency    String  @default("usd")
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  streamer User    @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  @@index([streamerId, isActive])
+  @@map("products")
+}
+
+model NotificationSubscription {
+  id       String             @id @default(cuid())
+  userId   String
+  token    String // Expo push token or email
+  platform NotificationPlatform
+  enabled  Boolean            @default(true)
+  createdAt DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token, platform])
+  @@map("notification_subscriptions")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  target      String // Table name or resource
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([target, createdAt])
+  @@map("audit_logs")
+}
+
+// Enums
+enum Role {
+  VIEWER
+  STREAMER
+  BOTH
+  ADMIN
+}
+
+enum Platform {
+  TWITCH
+  YOUTUBE
+  KICK
+  INSTAGRAM
+  TIKTOK
+  X
+}
+
+enum ContentType {
+  VIDEO
+  CLIP
+  LIVE
+  SHORT
+  POST
+}
+
+enum RedemptionStatus {
+  PENDING
+  FULFILLED
+  REJECTED
+}
+
+enum PollStatus {
+  OPEN
+  CLOSED
+}
+
+enum MiniGameType {
+  TRIVIA
+  PREDICTION
+  QUIZ
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationPlatform {
+  EXPO
+  EMAIL
+}

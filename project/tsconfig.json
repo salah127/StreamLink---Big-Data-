@@ -1,0 +1,35 @@
+{
+    "compilerOptions": {
+        "module": "Preserve",
+        "target": "ESNext",
+        "lib": [
+            "DOM",
+            "DOM.Iterable",
+            "ESNext"
+        ],
+        "skipLibCheck": true,
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "noEmit": true,
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true
+    },
+    "references": [
+        {
+            "path": "./apps/web"
+        },
+        {
+            "path": "./apps/mobile"
+        },
+        {
+            "path": "./services/api"
+        },
+        {
+            "path": "./packages/ui"
+        }
+    ]
+}

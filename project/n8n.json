@@ -1,0 +1,208 @@
+{
+    "name": "Simple Top 100 Discovery",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 60
+                        }
+                    ]
+                }
+            },
+            "id": "schedule-trigger",
+            "name": "Schedule Trigger",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1,
+            "position": [
+                100,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "https://api.twitch.tv/helix/streams?first=100",
+                "method": "GET",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Client-ID",
+                            "value": "{{ $env.TWITCH_CLIENT_ID }}"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer {{ $env.TWITCH_ACCESS_TOKEN }}"
+                        }
+                    ]
+                }
+            },
+            "id": "fetch-twitch",
+            "name": "Fetch Twitch Top 100",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                300,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "url": "https://www.googleapis.com/youtube/v3/search?part=snippet&eventType=live&type=video&order=viewCount&maxResults=50",
+                "method": "GET",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer {{ $env.YOUTUBE_ACCESS_TOKEN }}"
+                        }
+                    ]
+                }
+            },
+            "id": "fetch-youtube",
+            "name": "Fetch YouTube Top 50",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                300,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "https://kick.com/api/v1/livestreams?limit=50",
+                "method": "GET"
+            },
+            "id": "fetch-kick",
+            "name": "Fetch Kick Top 50",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                300,
+                500
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combinationMode": "mergeByPosition"
+            },
+            "id": "merge-results",
+            "name": "Merge Results",
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 2,
+            "position": [
+                600,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Normalize data to common format\nconst items = [];\n// ... Normalization logic here ...\nreturn items;"
+            },
+            "id": "normalize-data",
+            "name": "Normalize Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                800,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "INSERT INTO content_items (stream_id, title, viewer_count) VALUES ($1, $2, $3) ON CONFLICT (stream_id) DO UPDATE SET viewer_count = $3"
+            },
+            "id": "save-db",
+            "name": "Save to DB",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2,
+            "position": [
+                1000,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Schedule Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Twitch Top 100",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Fetch YouTube Top 50",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Fetch Kick Top 50",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Twitch Top 100": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Results",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch YouTube Top 50": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Results",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Fetch Kick Top 50": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Results",
+                        "type": "main",
+                        "index": 2
+                    }
+                ]
+            ]
+        },
+        "Merge Results": {
+            "main": [
+                [
+                    {
+                        "node": "Normalize Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Normalize Data": {
+            "main": [
+                [
+                    {
+                        "node": "Save to DB",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

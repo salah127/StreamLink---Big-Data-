@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	:root {
+		color-scheme: dark;
+	}
+
+	html {
+		scroll-behavior: smooth;
+	}
+
+	body {
+		@apply bg-slate-950 text-slate-100 antialiased font-sans;
+	}
+
+	.skip-link {
+		position: fixed;
+		top: 0.75rem;
+		left: 50%;
+		transform: translate(-50%, -120%);
+		padding: 0.5rem 1.25rem;
+		border-radius: 9999px;
+		background: rgba(34, 211, 238, 0.9);
+		color: rgb(15 23 42);
+		font-weight: 600;
+		letter-spacing: 0.02em;
+		transition: transform 150ms ease, opacity 150ms ease;
+		opacity: 0;
+		z-index: 60;
+	}
+
+	.skip-link:focus {
+		opacity: 1;
+		transform: translate(-50%, 0);
+	}
+}
+
+@layer utilities {
+	.grid-fade {
+		background-image: linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+			linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+		background-size: 48px 48px;
+	}
+
+	.icon-pixel {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 1;
+		vertical-align: middle;
+		image-rendering: pixelated;
+		image-rendering: crisp-edges;
+	}
+
+	.icon-pixel svg {
+		shape-rendering: crispEdges;
+		transform: translateZ(0);
+		backface-visibility: hidden;
+	}
+
+	.animate-marquee {
+		display: inline-flex;
+		min-width: 200%;
+		animation: marquee 28s linear infinite;
+		will-change: transform;
+	}
+}
+
+@keyframes marquee {
+	0% {
+		transform: translateX(0);
+	}
+
+	100% {
+		transform: translateX(-50%);
+	}
+}

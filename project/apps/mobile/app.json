@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "StreamLink",
+    "slug": "streamlink-app",
+    "version": "1.0.0",
+    "main": "index.js",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "sdkVersion": "54.0.0",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#05060A"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.streamlink.app"
+    },
+    "android": {
+      "package": "com.streamlink.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#00d4ff"
+        }
+      ]
+    ],
+    "scheme": "streamlink",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
